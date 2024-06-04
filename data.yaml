@@ -1,0 +1,13 @@
+train: ../train/images
+val: ../valid/images
+test: ../test/images
+
+nc: 6
+names: ['Pedestrian', 'Pedestrian Crossing', 'Traffic Light Red', 'Traffic-Light-Green', 'Traffic-Light-Orange', 'Vehicle']
+
+roboflow:
+  workspace: traffic-qzz9e
+  project: traffic-flow-iyzmo
+  version: 4
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/traffic-qzz9e/traffic-flow-iyzmo/dataset/4
