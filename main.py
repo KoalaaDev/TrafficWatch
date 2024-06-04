@@ -1,5 +1,6 @@
 import cv2
 import PySimpleGUI as sg
+from ultralytics import YOLO
 
 # List of stream URLs
 stream_urls = [
@@ -13,18 +14,46 @@ stream_urls = [
     "https://trafficwatch6.myt.mu/curepipe/CurepipeSuisse.stream/playlist.m3u8"
 ]
 
+colours = {
+    "Vehicle": (255, 255, 0),
+    "Person": (0, 0, 255),
+    "Pedestrian Crossing": (255, 255, 0),
+    "Traffic Light Red": (255, 0, 0),
+    "Traffic Light Green": (0, 255, 0),
+    "Traffic Light Yellow": (255, 255, 0),
+}
 # Initialize variables
 current_stream_index = 0
+toggle_detector = False
 num_streams = len(stream_urls)
 
-# Create layout for the GUI
+# Load YOLO model
+model = YOLO("custom.pt")  # Choose your model version
+
+# Function to create and handle settings window
+def open_settings_window():
+    settings_layout = [
+        [sg.Text("Settings")],
+        [sg.Text("COMING SOON!")],
+        [sg.Button("Close")]
+    ]
+    settings_window = sg.Window("Settings", settings_layout, modal=True)
+
+    while True:
+        event, values = settings_window.read()
+        if event == sg.WIN_CLOSED or event == "Close":
+            break
+
+    settings_window.close()
+
+# Create layout for the main GUI
 layout = [
     [sg.Button("Settings"), sg.Button("Add Stream"), sg.Button("Remove Stream")],
-    [sg.Button(image_filename="icons/left.png", key="Previous"), sg.Image(filename="", key="-IMAGE-"), sg.Button(image_filename="icons/right.png", key="Next"),], 
-    [sg.Button("Exit")]
+    [sg.Button(image_filename="icons/left.png", key="Previous"), sg.Image(filename="", key="-IMAGE-"), sg.Button(image_filename="icons/right.png", key="Next")],
+    [sg.Button("Toggle Detector"), sg.Button("Exit")]
 ]
 
-# Create the window
+# Create the main window
 window = sg.Window("CCTV Viewer", layout, finalize=True)
 
 # Create video capture object for the first stream
@@ -32,11 +61,16 @@ cap = cv2.VideoCapture(stream_urls[current_stream_index])
 
 # Event loop to handle button clicks and display video streams
 while True:
-    event, values = window.read(timeout=5)
+    event, values = window.read(timeout=4)
 
     if event == sg.WINDOW_CLOSED or event == "Exit":
         break
-
+    
+    if event == "Settings":
+        open_settings_window()
+    
+    if event == "Toggle Detector":
+        toggle_detector = not toggle_detector
     # Switch to the next stream if 'Next' button is pressed
     if event == "Next":
         current_stream_index = (current_stream_index + 1) % num_streams
@@ -71,6 +105,22 @@ while True:
     ret, frame = cap.read()
     if not ret:
         break
+    
+    if toggle_detector:
+        # Use YOLO model to predict objects in the frame
+        results = model.predict(source=frame, imgsz=640, conf=0.55)
+
+        # Draw bounding boxes on the frame
+        for result in results:
+            for box in result.boxes:
+                x1, y1, x2, y2 = box.cpu().xyxy.int().numpy().tolist()[0]
+                confidence = box.conf.item()
+                class_id = box.cls.item()
+                label = f"{model.names[class_id]} {confidence:.2f}"
+                box_colour = colours.get(model.names[class_id], "white")
+                frame = cv2.rectangle(frame, (x1, y1), (x2, y2), box_colour, 2)
+                
+                frame = cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
 
     # Convert frame to format PySimpleGUI can display
     imgbytes = cv2.imencode(".png", frame)[1].tobytes()
