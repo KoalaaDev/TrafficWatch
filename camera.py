@@ -16,6 +16,7 @@ stream_urls = [
 
 # Initialize variables
 current_stream_index = 0
+toggle_detector = False
 num_streams = len(stream_urls)
 
 # Load YOLO model
@@ -25,7 +26,7 @@ model = YOLO("custom.pt")  # Choose your model version
 layout = [
     [sg.Button("Settings"), sg.Button("Add Stream"), sg.Button("Remove Stream")],
     [sg.Button(image_filename="icons/left.png", key="Previous"), sg.Image(filename="", key="-IMAGE-"), sg.Button(image_filename="icons/right.png", key="Next"),], 
-    [sg.Button("Exit")]
+    [sg.Button("Toggle Detector"), sg.Button("Exit")]
 ]
 
 # Create the window
@@ -40,7 +41,9 @@ while True:
 
     if event == sg.WINDOW_CLOSED or event == "Exit":
         break
-
+    
+    if event == "Toggle Detector":
+        toggle_detector = not toggle_detector
     # Switch to the next stream if 'Next' button is pressed
     if event == "Next":
         current_stream_index = (current_stream_index + 1) % num_streams
@@ -75,19 +78,20 @@ while True:
     ret, frame = cap.read()
     if not ret:
         break
+    
+    if toggle_detector:
+        # Use YOLO model to predict objects in the frame
+        results = model.predict(source=frame, imgsz=640, conf=0.55)
 
-    # Use YOLO model to predict objects in the frame
-    results = model.predict(source=frame, imgsz=640, conf=0.55)
-
-    # Draw bounding boxes on the frame
-    for result in results:
-        for box in result.boxes:
-            x1, y1, x2, y2 = box.cpu().xyxy.int().numpy().tolist()[0]
-            confidence = box.conf.item()
-            class_id = box.cls.item()
-            label = f"{model.names[class_id]} {confidence:.2f}"
-            frame = cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-            frame = cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+        # Draw bounding boxes on the frame
+        for result in results:
+            for box in result.boxes:
+                x1, y1, x2, y2 = box.cpu().xyxy.int().numpy().tolist()[0]
+                confidence = box.conf.item()
+                class_id = box.cls.item()
+                label = f"{model.names[class_id]} {confidence:.2f}"
+                frame = cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                frame = cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
 
     # Convert frame to format PySimpleGUI can display
     imgbytes = cv2.imencode(".png", frame)[1].tobytes()
