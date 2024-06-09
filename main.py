@@ -15,12 +15,12 @@ stream_urls = [
 ]
 
 colours = {
-    "Vehicle": (255, 255, 0),
-    "Person": (0, 0, 255),
-    "Pedestrian Crossing": (255, 255, 0),
-    "Traffic Light Red": (255, 0, 0),
-    "Traffic Light Green": (0, 255, 0),
-    "Traffic Light Yellow": (255, 255, 0),
+    "Vehicle": (0,0,255),
+    "Person": (255,86,255),
+    "Pedestrian-Crossing": (86, 255,255),
+    "Traffic Light Red": (0,0,255),
+    "Traffic-Light-Green": (0, 255, 0),
+    "Traffic-Light-Yellow": (0, 255, 255),
 }
 # Initialize variables
 current_stream_index = 0
@@ -37,7 +37,7 @@ def open_settings_window():
         [sg.Text("COMING SOON!")],
         [sg.Button("Close")]
     ]
-    settings_window = sg.Window("Settings", settings_layout, modal=True)
+    settings_window = sg.Window("Settings", settings_layout, modal=False)
 
     while True:
         event, values = settings_window.read()
@@ -108,7 +108,7 @@ while True:
     
     if toggle_detector:
         # Use YOLO model to predict objects in the frame
-        results = model.predict(source=frame, imgsz=640, conf=0.55)
+        results = model.track(source=frame, imgsz=640, conf=0.5)
 
         # Draw bounding boxes on the frame
         for result in results:
