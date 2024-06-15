@@ -8,7 +8,7 @@ colours = {
     "Pedestrian-Crossing": (86, 255,255),
     "Traffic Light Red": (0,0,255),
     "Traffic-Light-Green": (0, 255, 0),
-    "Traffic-Light-Yellow": (0, 255, 255),
+    "Traffic-Light-Orange": (0, 255, 255),
 }
 
 # List of stream URLs

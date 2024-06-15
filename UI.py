@@ -19,7 +19,6 @@ class UI:
     
     def render_frame(self):
         _, frame = self.cap.read()
-        frame = cv2.resize(frame, (800, 400))
         if self.cameras[self.current_stream_index].traffic_rule_coordinates:
             start, end = self.cameras[self.current_stream_index].traffic_rule_coordinates
             frame = cv2.rectangle(frame, start, end, (0, 0, 255), 2)
@@ -34,7 +33,7 @@ class UI:
     
     def draw_rules_window(self):
         layout = [[sg.Combo(["Traffic line Rule", "Traffic light", "Pedestrian Crossing"], size = (20, 1), key="shape", default_value="Traffic line Rule", readonly=True),],
-                           [sg.Graph((800, 400), (0, 0), (800, 400), background_color='white', key='-GRAPH-', drag_submits=True, enable_events=True)],
+                           [sg.Graph((1280, 720), (0, 0), (1280, 720), background_color='white', key='-GRAPH-', drag_submits=True, enable_events=True)],
                            [sg.Button("Save"), sg.Button("Cancel")]]
         settings_window = sg.Window("Edit Rules", layout, modal=True, finalize=True)
         graph = settings_window["-GRAPH-"]
@@ -42,7 +41,7 @@ class UI:
         start_point = end_point = prior_rect = None
         # image is the video frame on the main window
         imgbytes = self.render_frame()
-        settings_window["-GRAPH-"].draw_image(data=imgbytes, location=(0, 400))
+        settings_window["-GRAPH-"].draw_image(data=imgbytes, location=(0, 720))
         while True:
             event, values = settings_window.read()
 
@@ -62,8 +61,8 @@ class UI:
                     prior_rect = graph.draw_rectangle(start_point, end_point, line_color='red')
                 
             elif event.endswith('+UP'):  # The drawing has ended because mouse up
-                start_point[1] = 400 - start_point[1]
-                end_point[1] = 400 - end_point[1]
+                start_point[1] = 720 - start_point[1]
+                end_point[1] = 720 - end_point[1]
                 saved_rect = (start_point, end_point)
                 print("MOUSE UP", values, start_point, end_point)
                 start_point, end_point = None, None  # enable grabbing a new rect
@@ -88,13 +87,13 @@ class UI:
     # Function to create and handle settings window
     def open_settings_window(self):
         rules_layout = [[sg.Text("Set Traffic Rules")],
-                        [sg.Graph((800, 400), (0, 0), (800, 400), background_color='white', key='-RULES-')],
+                        [sg.Graph((1280, 720), (0, 0), (1280, 720), background_color='white', key='-RULES-')],
                         [sg.Button("Edit Rules")]]
         settings_layout = [[sg.TabGroup([[sg.Tab("Rules", rules_layout)]])]]
         settings_window = sg.Window("Settings", settings_layout, modal=True, finalize=True)
         
         imgbytes = self.render_frame()
-        settings_window["-RULES-"].draw_image(data=imgbytes, location=(0, 400))
+        settings_window["-RULES-"].draw_image(data=imgbytes, location=(0, 720))
         while True:
             event, values = settings_window.read()
             if event == sg.WIN_CLOSED:
@@ -166,7 +165,7 @@ class UI:
     def process_video(self, frame):
         # Use YOLO model to predict objects in the frame
         results = self.model.track(source=frame, imgsz=640, conf=0.5, persist=True)
-
+        print(frame.shape)
         # Draw bounding boxes on the frame
         for result in results:
             for box in result.boxes:
@@ -181,10 +180,19 @@ class UI:
                 frame = cv2.rectangle(frame, (x1, y1), (x2, y2), box_colour, 2)
                 
                 frame = cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
-
+        if self.cameras[self.current_stream_index].traffic_rule_coordinates:
+            start, end = self.cameras[self.current_stream_index].traffic_rule_coordinates
+            frame = cv2.rectangle(frame, start, end, (0, 0, 255), 2)
+        if self.cameras[self.current_stream_index].traffic_light_coordinates:
+            start, end = self.cameras[self.current_stream_index].traffic_light_coordinates
+            frame = cv2.rectangle(frame, start, end, (0, 255, 0), 2)
+        if self.cameras[self.current_stream_index].pedestriancross_coordinates:
+            start, end = self.cameras[self.current_stream_index].pedestriancross_coordinates
+            frame = cv2.rectangle(frame, start, end, (255, 0, 0), 2)
     # Event loop to handle button clicks and display video streams
     def event_loop(self):
         window = sg.Window("Traffic Watch", self.layout, finalize=True)
+        window.Maximize()
         # Event loop to handle button clicks and display video streams
         while True:
             event, _ = window.read(timeout=4)
