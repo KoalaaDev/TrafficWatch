@@ -1,6 +1,7 @@
 import PySimpleGUI as sg
 import cv2
 from camera import Camera
+from traffic import TrafficMonitor
 
 class UI:
     def __init__(self, stream_urls, model, colours):
@@ -16,6 +17,7 @@ class UI:
         [sg.Button("Toggle Detector"), sg.Button("Exit")]
         ]
         self.colours = colours
+        self.monitor = TrafficMonitor()
     
     def render_frame(self):
         _, frame = self.cap.read()
@@ -86,10 +88,13 @@ class UI:
         settings_window.close()
     # Function to create and handle settings window
     def open_settings_window(self):
-        rules_layout = [[sg.Text("Set Traffic Rules")],
+        rules_layout = [[sg.Text("Set Traffic Rules", font=('Helvetica', 16), justification='center')],
                         [sg.Graph((1280, 720), (0, 0), (1280, 720), background_color='white', key='-RULES-')],
                         [sg.Button("Edit Rules")]]
-        settings_layout = [[sg.TabGroup([[sg.Tab("Rules", rules_layout)]])]]
+        model_layout = [[sg.Text("Edit Model Parameters")],
+                  [sg.Text("Confidence Threshold"), sg.Slider((0,1),0.5,0.01, orientation="horizontal", size=(20, 20), key='-CONFIDENCESLIDER-', enable_events=True),sg.InputText('0', size=(5, 1), key='-CONFIDENCEINPUT-', enable_events=True)],
+                  ]
+        settings_layout = [[sg.TabGroup([[sg.Tab("Rules", rules_layout)], [sg.Tab("Model", model_layout)]])]]
         settings_window = sg.Window("Settings", settings_layout, modal=True, finalize=True)
         
         imgbytes = self.render_frame()
@@ -104,6 +109,21 @@ class UI:
                 settings_window.modal = True
                 imgbytes = self.render_frame()
                 settings_window["-RULES-"].draw_image(data=imgbytes, location=(0, 400))
+            # If slider is moved, update input box
+            if event == '-CONFIDENCESLIDER-':
+                print("slider moved", values['-CONFIDENCESLIDER-'])
+                settings_window['-CONFIDENCEINPUT-'].update(value=values['-CONFIDENCESLIDER-'])
+            
+            # If input box is changed, update slider
+            if event == '-CONFIDENCEINPUT-':
+                if values['-CONFIDENCEINPUT-'] == "":  # make sure that the input is not empty
+                    pass
+                else:
+                    new_value = float(values['-CONFIDENCEINPUT-'])
+                    print("input changed", new_value)
+                    if 0 <= new_value <= 1:
+                        settings_window['-CONFIDENCESLIDER-'].update(value=new_value)
+
         settings_window.close()
     def open_add_stream_window(self):
         layout = [[sg.Text("Enter Location Name:"), sg.InputText()],
@@ -185,6 +205,8 @@ class UI:
             frame = cv2.rectangle(frame, start, end, (0, 0, 255), 2)
         if self.cameras[self.current_stream_index].traffic_light_coordinates:
             start, end = self.cameras[self.current_stream_index].traffic_light_coordinates
+            if self.monitor.detect_red_light(frame, start, end) is not None:
+                frame = cv2.putText(frame, "STATUS: "+ self.monitor.detect_red_light(frame, start, end), (0, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
             frame = cv2.rectangle(frame, start, end, (0, 255, 0), 2)
         if self.cameras[self.current_stream_index].pedestriancross_coordinates:
             start, end = self.cameras[self.current_stream_index].pedestriancross_coordinates
