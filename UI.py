@@ -208,16 +208,16 @@ class UI:
                     label = f"{int(box.id.numpy())}:{self.model.names[class_id]} {confidence:.2f}"
                 box_colour = self.colours.get(self.model.names[class_id], "white")
                 frame = cv2.rectangle(frame, (x1, y1), (x2, y2), box_colour, 2)
-                print(self.model_confidence)
                 frame = cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
         if self.cameras[self.current_stream_index].traffic_rule_coordinates:
             start, end = self.cameras[self.current_stream_index].traffic_rule_coordinates
             frame = cv2.rectangle(frame, start, end, (0, 0, 255), 2)
-        if self.cameras[self.current_stream_index].traffic_light_coordinates and not self.manual_traffic_mode:
+        if self.cameras[self.current_stream_index].traffic_light_coordinates and self.manual_traffic_mode:
             start, end = self.cameras[self.current_stream_index].traffic_light_coordinates
             status = self.monitor.detect_red_light(frame, start, end)
             if status is not None:
-                frame = cv2.putText(frame, "STATUS: "+ status, cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+                self.cameras[self.current_stream_index].set_traffic_status(status)
+            frame = cv2.putText(frame, "STATUS: "+ self.cameras[self.current_stream_index].traffic_status,(10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
             frame = cv2.rectangle(frame, start, end, (0, 255, 0), 2)
         if self.cameras[self.current_stream_index].pedestriancross_coordinates:
             start, end = self.cameras[self.current_stream_index].pedestriancross_coordinates

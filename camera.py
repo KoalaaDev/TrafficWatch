@@ -5,6 +5,7 @@ class Camera:
         self.traffic_light_coordinates = []
         self.traffic_rule_coordinates = []
         self.pedestriancross_coordinates = []
+        self.traffic_status = ""
 
     def set_traffic_light_area(self, coordinates):
         self.traffic_light_coordinates = coordinates
@@ -14,6 +15,9 @@ class Camera:
 
     def set_pedestriancross_area(self, coordinates):
         self.pedestriancross_coordinates = coordinates
+
+    def set_traffic_status(self, status):
+        self.traffic_status = status
 
     def get_camera_url(self):
         return self.url
