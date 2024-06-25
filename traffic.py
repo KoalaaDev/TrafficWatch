@@ -7,6 +7,7 @@ class TrafficMonitor():
         self.vehicles_boxes = []
         self.iou_threshold = iou_threshold
         self.max_hit = max_hit
+        self.traffic_light_state = ""
     
     def iou(self, box1, box2):
         x1, y1, w1, h1 = box1
@@ -37,7 +38,6 @@ class TrafficMonitor():
         maskg = cv2.inRange(hsv, lower_green, upper_green)
         masky = cv2.inRange(hsv, lower_yellow, upper_yellow)
         maskr = cv2.add(mask1, mask2)
-        size = img.shape
         # print size
 
         # hough circle detect
@@ -49,7 +49,7 @@ class TrafficMonitor():
 
         y_circles = cv2.HoughCircles(masky, cv2.HOUGH_GRADIENT, 1, 30,
                                     param1=50, param2=5, minRadius=0, maxRadius=30)
-        print(r_circles, g_circles, y_circles)
+
         # return string of color
         if r_circles is not None:
             return "red"
@@ -57,3 +57,13 @@ class TrafficMonitor():
             return "green"
         elif y_circles is not None:
             return "yellow"
+        
+    def set_traffic_light_state(self, frame, start, end):
+        """Set the traffic light state"""
+        self.traffic_light_state = self.detect_red_light(frame, start, end)
+    
+    def detect_traffic_light_violation(self, vehiclebox, rulebox):
+        """Detects if the vehicle has violated the traffic light"""
+        if self.iou(vehiclebox, rulebox) > self.iou_threshold:
+            return True
+        return False
