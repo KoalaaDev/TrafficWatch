@@ -1,7 +1,9 @@
 from ultralytics import YOLO
-if __name__ == "__main__":
-    # Load the model
-    model = YOLO("yolov8m.pt")  # build from YAML and transfer weights
+
+# Load a model
+if __name__ == '__main__':
+    model = YOLO("yolov8m.pt")  # load a pretrained model (recommended for training)
+
 
     # Train the model
-    results = model.train(data="data.yaml", epochs=100, imgsz=640)
+    results = model.train(data="data.yaml", epochs=100, imgsz=640, batch=-1, cache=True)
