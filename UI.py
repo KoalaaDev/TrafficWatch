@@ -97,7 +97,7 @@ class UI:
                         [sg.Button("Edit Rules")]]
         model_layout = [[sg.Text("Edit Model Parameters")],
                   [sg.Text("Confidence Threshold"), sg.Slider((0,1),self.model_confidence,0.01, orientation="horizontal", size=(20, 20), key='-CONFIDENCESLIDER-', enable_events=True),sg.InputText('0', size=(5, 1), key='-CONFIDENCEINPUT-', enable_events=True)],
-                  [sg.Text("Overlap Threshold"), sg.Slider((0,1),self.monitor.iou_threshold,0.01, orientation="horizontal", size=(20, 20), key='-IOUSLIDER-', enable_events=True),sg.InputText('0', size=(5, 1), key='-IOUSLIDER-', enable_events=True)]
+                  [sg.Text("Overlap Threshold"), sg.Slider((0,1),self.monitor.iou_threshold,0.01, orientation="horizontal", size=(20, 20), key='-IOUSLIDER-', enable_events=True),sg.InputText('0', size=(5, 1), key='-IOUSLIDER-', enable_events=True)],
                   [sg.Text("Enable Manual Traffic Detection"),sg.Image(source=model_tickbox, key="manual_traffic_mode", enable_events=True)]]
         settings_layout = [[sg.TabGroup([[sg.Tab("Rules", rules_layout)], [sg.Tab("Model", model_layout)]])]]
         settings_window = sg.Window("Settings", settings_layout, modal=True, finalize=True)
