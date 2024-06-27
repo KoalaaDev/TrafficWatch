@@ -1,22 +1,20 @@
 import torch
 import cv2
 import numpy as np
+import torchvision.ops.boxes as box_ops
 
 class TrafficMonitor():
-    def __init__(self, iou_threshold=0.5, max_hit=3):
+    def __init__(self, iou_threshold=0.20, max_hit=3):
         self.vehicles_boxes = []
         self.iou_threshold = iou_threshold
         self.max_hit = max_hit
         self.traffic_light_state = ""
     
     def iou(self, box1, box2):
-        x1, y1, w1, h1 = box1
-        x2, y2, w2, h2 = box2
-        x1, y1, x2, y2 = x1 - w1 / 2, y1 - h1 / 2, x2 - w2 / 2, y2 - h2 / 2
-        x1, y1, x2, y2 = max(x1, x2), max(y1, y2), min(x1 + w1, x2 + w2), min(y1 + h1, y2 + h2)
-        intersection = max(0, x2 - x1) * max(0, y2 - y1)
-        union = w1 * h1 + w2 * h2 - intersection
-        return intersection / union
+        box1 = torch.tensor([box1], dtype=torch.float32)
+        box2 = torch.tensor([box2], dtype=torch.float32)
+        iou = box_ops.box_iou(box2, box1)
+        return iou.item()
     
     def detect_red_light(self, frame, start, end):
         """Detects red light in the box specified"""
@@ -67,3 +65,13 @@ class TrafficMonitor():
         if self.iou(vehiclebox, rulebox) > self.iou_threshold:
             return True
         return False
+    
+    def calculate_box_coordinates(self, start, end):
+        """Calculate the box coordinates"""
+        x1, y1 = start
+        x2, y2 = end
+        w = x2 - x1
+        h = y2 - y1
+        return x1, y1, x1+w, y1+h
+
+    

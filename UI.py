@@ -97,6 +97,7 @@ class UI:
                         [sg.Button("Edit Rules")]]
         model_layout = [[sg.Text("Edit Model Parameters")],
                   [sg.Text("Confidence Threshold"), sg.Slider((0,1),self.model_confidence,0.01, orientation="horizontal", size=(20, 20), key='-CONFIDENCESLIDER-', enable_events=True),sg.InputText('0', size=(5, 1), key='-CONFIDENCEINPUT-', enable_events=True)],
+                  [sg.Text("Overlap Threshold"), sg.Slider((0,1),self.monitor.iou_threshold,0.01, orientation="horizontal", size=(20, 20), key='-IOUSLIDER-', enable_events=True),sg.InputText('0', size=(5, 1), key='-IOUSLIDER-', enable_events=True)]
                   [sg.Text("Enable Manual Traffic Detection"),sg.Image(source=model_tickbox, key="manual_traffic_mode", enable_events=True)]]
         settings_layout = [[sg.TabGroup([[sg.Tab("Rules", rules_layout)], [sg.Tab("Model", model_layout)]])]]
         settings_window = sg.Window("Settings", settings_layout, modal=True, finalize=True)
@@ -117,6 +118,10 @@ class UI:
             if event == '-CONFIDENCESLIDER-':
                 settings_window['-CONFIDENCEINPUT-'].update(value=values['-CONFIDENCESLIDER-'])
                 self.model_confidence = values['-CONFIDENCESLIDER-']
+
+            if event == '-IOUSLIDER-':
+                settings_window['-CONFIDENCEINPUT-'].update(value=values['-CONFIDENCESLIDER-'])
+                self.monitor.iou_threshold = values['-CONFIDENCESLIDER-']
             # If input box is changed, update slider
             if event == '-CONFIDENCEINPUT-':
                 if values['-CONFIDENCEINPUT-'] == "":  # make sure that the input is not empty
@@ -126,6 +131,16 @@ class UI:
                     if 0 <= new_value <= 1:
                         settings_window['-CONFIDENCESLIDER-'].update(value=new_value)
                         self.model_confidence = new_value
+
+            if event == '-IOUINPUT-':
+                if values['-IOUINPUT-'] == "":  # make sure that the input is not empty
+                    pass
+                else:
+                    new_value = float(values['-IOUINPUT-'])
+                    if 0 <= new_value <= 1:
+                        settings_window['-IOUSLIDER-'].update(value=new_value)
+                        self.monitor.iou_threshold = new_value
+
             if event == "manual_traffic_mode":
                 self.manual_traffic_mode = not self.manual_traffic_mode
                 if self.manual_traffic_mode:
@@ -206,12 +221,17 @@ class UI:
                     label = f"{self.model.names[class_id]} {confidence:.2f}"
                 else:
                     label = f"{int(box.id.numpy())}:{self.model.names[class_id]} {confidence:.2f}"
+                
+                # if self.model.names[class_id] in ["Traffic Light Red", "Traffic-Light-Green", "Traffic-Light-Orange"]:
+                #     self.cameras[self.current_stream_index].set_traffic_light_coordinates((x1, y1), (x2, y2))
                 box_colour = self.colours.get(self.model.names[class_id], "white")
                 frame = cv2.rectangle(frame, (x1, y1), (x2, y2), box_colour, 2)
                 frame = cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
-        if self.cameras[self.current_stream_index].traffic_rule_coordinates:
-            start, end = self.cameras[self.current_stream_index].traffic_rule_coordinates
-            frame = cv2.rectangle(frame, start, end, (0, 0, 255), 2)
+                if self.cameras[self.current_stream_index].traffic_rule_coordinates:
+                    start, end = self.cameras[self.current_stream_index].traffic_rule_coordinates
+                    if self.monitor.detect_traffic_light_violation(self.monitor.calculate_box_coordinates(start, end),(x1, y1, x2, y2)) and self.cameras[self.current_stream_index].traffic_status == "red":
+                        frame = cv2.putText(frame, "Traffic Light Violation", (10, 100), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+                    frame = cv2.rectangle(frame, start, end, (0, 0, 255), 2)
         if self.cameras[self.current_stream_index].traffic_light_coordinates and self.manual_traffic_mode:
             start, end = self.cameras[self.current_stream_index].traffic_light_coordinates
             status = self.monitor.detect_red_light(frame, start, end)
