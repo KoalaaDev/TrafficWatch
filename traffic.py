@@ -2,6 +2,38 @@ import torch
 import cv2
 import numpy as np
 import torchvision.ops.boxes as box_ops
+from ultralytics.solutions import SpeedEstimator
+
+class SpeedTracker(SpeedEstimator):
+    # modify the class to store speeds instead of visualizing them
+    def __init__(self, model, iou_threshold=0.20, max_hit=3):
+        super().__init__(model)
+        
+    def estimate_speed(self, tracks):
+        """
+        Estimates the speed of objects based on tracking data.
+
+        Args:
+            im0 (ndarray): Image.
+            tracks (list): List of tracks obtained from the object tracking process.
+            region_color (tuple, optional): Color to use when drawing regions. Defaults to (255, 0, 0).
+
+        Returns:
+            (ndarray): Speed data.
+        """
+        if tracks[0].boxes.id is None:
+            return {}
+
+        self.extract_tracks(tracks)
+        for box, trk_id, cls in zip(self.boxes, self.trk_ids, self.clss):
+            track = self.store_track_info(trk_id, box)
+
+            if trk_id not in self.trk_previous_times:
+                self.trk_previous_times[trk_id] = 0
+            self.calculate_speed(trk_id, track)
+
+        return self.dist_data
+        
 
 class TrafficMonitor():
     def __init__(self, iou_threshold=0.20, max_hit=3):
@@ -9,6 +41,7 @@ class TrafficMonitor():
         self.iou_threshold = iou_threshold
         self.max_hit = max_hit
         self.traffic_light_state = ""
+        self.speeds = {}
     
     def iou(self, box1, box2):
         box1 = torch.tensor([box1], dtype=torch.float32)
@@ -74,4 +107,5 @@ class TrafficMonitor():
         h = y2 - y1
         return x1, y1, x1+w, y1+h
 
-    
+    def set_speeds(self, speeds):
+        self.speeds = speeds
