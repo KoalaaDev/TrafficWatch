@@ -264,6 +264,9 @@ class UI:
                     if self.monitor.detect_traffic_light_violation(self.monitor.calculate_box_coordinates(start, end),(x1, y1, x2, y2)) and self.cameras[self.current_stream_index].traffic_status == "red":
                         frame = cv2.putText(frame, "Traffic Light Violation", (10, 100), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
                     frame = cv2.rectangle(frame, start, end, (0, 0, 255), 2)
+        self.process_traffic_rules(frame, results)
+
+    def process_traffic_rules(self, frame, results):
         if self.cameras[self.current_stream_index].traffic_light_coordinates and self.manual_traffic_mode:
             start, end = self.cameras[self.current_stream_index].traffic_light_coordinates
             status = self.monitor.detect_red_light(frame, start, end)
@@ -281,7 +284,9 @@ class UI:
             self.speed_estimator.reg_pts = [start, end]
             self.speed_estimator.estimate_speed(results)
             self.monitor.set_speeds(self.speed_estimator.dist_data)
-
+            for track_id, speed in self.speed_estimator.dist_data.items():
+                if self.monitor.detect_speed_violation(speed, self.cameras[self.current_stream_index].speedlimit):
+                    frame = cv2.putText(frame, f"Speed Violation: {track_id} {speed:.2f} km/h", (10, 150), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
     # Event loop to handle button clicks and display video streams
     def event_loop(self):
         window = sg.Window("Traffic Watch", self.layout, finalize=True)

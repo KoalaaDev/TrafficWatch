@@ -14,6 +14,7 @@ colours = {
 # List of stream URLs
 stream_urls_dict = {
     "caudan": "https://trafficwatchcdn.myt.mu/harbour/caudan.stream/playlist.m3u8",
+    "BeauBassin": "https://trafficwatch6.myt.mu/beaubassin/bbps1.stream/playlist.m3u8",
     "plsouth": "https://trafficwatchcdn.myt.mu/harbour/plsouth.stream/playlist.m3u8",
     "pdarmes": "https://trafficwatch6.myt.mu/plbyn/pdarmes.stream/playlist.m3u8",
     "lbps2": "https://trafficwatch6.myt.mu/plbyn/lbps2.stream/playlist.m3u8",
