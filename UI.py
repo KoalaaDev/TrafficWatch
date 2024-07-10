@@ -16,6 +16,7 @@ class UI:
         self.model = model
         self.speed_estimator = SpeedTracker(self.model.names)
         self.cap = cv2.VideoCapture(self.cameras[self.current_stream_index].get_camera_url())
+        self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 2)
         self.layout = [
         [sg.Button("Settings"), sg.Button("Add Stream"), sg.Button("Remove Stream")],
         [sg.Button(image_filename="icons/left.png", key="Previous"), sg.Image(filename="", key="-IMAGE-"), sg.Button(image_filename="icons/right.png", key="Next")],
@@ -240,6 +241,7 @@ class UI:
             results = self.model.track(source=frame, imgsz=640, conf=self.model_confidence, persist=True, classes=[0,1,5])
         else:
             results = self.model.track(source=frame, imgsz=640, conf=self.model_confidence, persist=True)
+        copiedframe = frame.copy() #copy frame for backup
         # Draw bounding boxes on the frame
         for result in results:
             for box in result.boxes:
@@ -263,6 +265,10 @@ class UI:
                     start, end = self.cameras[self.current_stream_index].traffic_rule_coordinates
                     if self.monitor.detect_traffic_light_violation(self.monitor.calculate_box_coordinates(start, end),(x1, y1, x2, y2)) and self.cameras[self.current_stream_index].traffic_status == "red":
                         frame = cv2.putText(frame, "Traffic Light Violation", (10, 100), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+                        if box.id not in self.monitor.get_traffic_light_violators():
+                            self.monitor.add_violator(box.id, 0, 0)
+                            self.monitor.save_evidence(copiedframe, box, 0)
+
                     frame = cv2.rectangle(frame, start, end, (0, 0, 255), 2)
         self.process_traffic_rules(frame, results)
 
@@ -282,11 +288,34 @@ class UI:
             start, end = self.cameras[self.current_stream_index].speeddetection_line
             frame = cv2.line(frame, start, end, (0, 0, 255), 2)
             self.speed_estimator.reg_pts = [start, end]
-            self.speed_estimator.estimate_speed(results)
-            self.monitor.set_speeds(self.speed_estimator.dist_data)
-            for track_id, speed in self.speed_estimator.dist_data.items():
-                if self.monitor.detect_speed_violation(speed, self.cameras[self.current_stream_index].speedlimit):
-                    frame = cv2.putText(frame, f"Speed Violation: {track_id} {speed:.2f} km/h", (10, 150), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+            if self.cameras[self.current_stream_index].speedlimit:
+                self.speed_estimator.estimate_speed(results)
+                self.monitor.set_speeds(self.speed_estimator.dist_data)
+                for track_id, speed in self.speed_estimator.dist_data.items():
+                    if self.monitor.detect_speed_violation(speed, self.cameras[self.current_stream_index].speedlimit):
+                        if track_id not in self.monitor.get_speed_violators():
+                            self.monitor.add_violator(track_id, speed, 1)
+                            violationbox = self.monitor.get_box_from_results(results, track_id)
+                            self.monitor.save_evidence(frame, violationbox, 1)
+                            
+    
+    def events_page(self):
+        violations = self.monitor.violators
+        # 0 = Traffic Light Violation, 1 = Speed Violation, 2 = Pedestrian Crossing Violation
+
+    def create_gallery_layout(self, title, grouped_files, folder):
+        layout = [[sg.Text(title, font=('Any', 20))]]
+    
+        for date_str, files in grouped_files.items():
+            layout.append([sg.Text(f"Date: {date_str}", font=('Any', 16))])
+            for file, vehicle_id, violation_type in files:
+                image_path = os.path.join(folder, file)
+                img_data = resize_image(image_path, (200, 200))
+                title = f"Vehicle ID: {vehicle_id}, Violation: {violation_type}"
+                layout.append([sg.Text(title, size=(50, 1), font=('Any', 12)), sg.Image(data=img_data)])
+        
+        layout.append([sg.Button("Exit")])
+        return layout
     # Event loop to handle button clicks and display video streams
     def event_loop(self):
         window = sg.Window("Traffic Watch", self.layout, finalize=True)

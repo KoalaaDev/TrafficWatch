@@ -44,6 +44,7 @@ class TrafficMonitor():
         self.max_hit = max_hit
         self.traffic_light_state = ""
         self.speeds = {}
+        self.violators = {0: [], 1: [], 2: []}
     
     def iou(self, box1, box2):
         box1 = torch.tensor([box1], dtype=torch.float32)
@@ -129,11 +130,13 @@ class TrafficMonitor():
         """
         x1, y1, x2, y2 = vehiclebox.cpu().xyxy.int().numpy().tolist()[0]
         vehicleimg = frame[y1:y2, x1:x2]
-        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-        if box.id:
-            vehicleid = box.id.numpy()
+        # add the vehicle box to the image
+        cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
+        if vehiclebox.id:
+            vehicleid = vehiclebox.id.numpy()
         else:
-            vehicleid = np.random.randint(1000, 10000)
+            print("WARNING: Vehicle ID not found")
+            return
         self.upload_image(vehicleid, vehicleimg, violation_type)
         self.upload_image(vehicleid, frame, violation_type, vehicle=False)
     
@@ -162,9 +165,34 @@ class TrafficMonitor():
         date = datetime.now().strftime("%Y%m%d")
         # save the image to the respective folder based on vehicle or scene
         if vehicle:
-            cv2.imwrite(f"evidence/vehicles/{date}-{vehicleid}-{violation_type}.jpg", image)
+            cv2.imwrite(f"evidence/vehicles/{date}-{vehicleid[0]}-{violation_type}.jpg", image)
         else:
-            cv2.imwrite(f"evidence/scenes/{date}-{violation_type}.jpg", image)
-        
+            cv2.imwrite(f"evidence/scenes/{date}-{vehicleid[0]}-{violation_type}.jpg", image)
+
+    def add_violator(self, vehiclebox, violation_type: int, speed: int = None):
+        """Add the violator to the list of violators"""
+        if violation_type == 0:
+            self.violators[0].append(vehiclebox)
+        elif violation_type == 1:
+            self.violators[1].append({vehiclebox: speed})
+        elif violation_type == 2:
+            self.violators[2].append(vehiclebox)
+    
+    def get_traffic_light_violators(self):
+        return self.violators[0]
+    
+    def get_speed_violators(self):
+        return self.violators[1]
+    
+    def get_pedestrian_crossing_violators(self):
+        return self.violators[2]
+    
+    def get_box_from_results(self, results, id):
+        for result in results:
+            for box in result.boxes:
+                if box.id is None:
+                    continue
+                if box.id == id:
+                    return box
         
 
