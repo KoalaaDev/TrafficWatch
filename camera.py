@@ -5,7 +5,9 @@ class Camera:
         self.traffic_light_coordinates = []
         self.traffic_rule_coordinates = []
         self.pedestriancross_coordinates = []
+        self.speeddetection_line = []
         self.traffic_status = ""
+        self.speedlimit = 60
 
     def set_traffic_light_area(self, coordinates):
         self.traffic_light_coordinates = coordinates
@@ -18,6 +20,9 @@ class Camera:
 
     def set_traffic_status(self, status):
         self.traffic_status = status
+    
+    def set_speed_detection_line(self, coordinates):
+        self.speeddetection_line = coordinates
 
     def get_camera_url(self):
         return self.url
