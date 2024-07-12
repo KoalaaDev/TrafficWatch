@@ -43,7 +43,7 @@ class UI:
         return imgbytes
     
     def draw_rules_window(self):
-        layout = [[sg.Combo(["Traffic line Rule", "Traffic light", "Pedestrian Crossing", "Speed detection"], size=(20, 1), key="shape", default_value="Traffic line Rule", readonly=True)],
+        layout = [[sg.Combo(["Traffic line Rule", "Traffic light", "Pedestrian Crossing", "Speed detection"], size=(20, 1), key="shape", default_value="Traffic line Rule", readonly=True, enable_events=True)],
                 [sg.Graph((1280, 720), (0, 0), (1280, 720), background_color='white', key='-GRAPH-', drag_submits=True, enable_events=True)],
                 [sg.Button("Save"), sg.Button("Cancel")]]
         settings_window = sg.Window("Edit Rules", layout, modal=True, finalize=True)
@@ -54,12 +54,30 @@ class UI:
         # image is the video frame on the main window
         imgbytes = self.render_frame()
         settings_window["-GRAPH-"].draw_image(data=imgbytes, location=(0, 720))
+        on_shape = "Traffic line Rule"
         while True:
             event, values = settings_window.read()
 
             if event == sg.WIN_CLOSED or event == "Cancel":
                 break  # exit
             
+            if event == "shape":
+                # when changing shape, save the current shape and refresh to show it
+                if saved_shape:
+                    _, start_point, end_point = saved_shape
+                    if on_shape == "Traffic line Rule":
+                        self.cameras[self.current_stream_index].set_traffic_rule_area((start_point, end_point))
+                    elif on_shape == "Traffic light":
+                        self.cameras[self.current_stream_index].set_traffic_light_area((start_point, end_point))
+                    elif on_shape == "Pedestrian Crossing":
+                        self.cameras[self.current_stream_index].set_pedestriancross_area((start_point, end_point))
+                    elif on_shape == "Speed detection":
+                        self.cameras[self.current_stream_index].set_speed_detection_line((start_point, end_point))
+                    saved_shape = None
+                    imgbytes = self.render_frame()
+                    settings_window["-GRAPH-"].draw_image(data=imgbytes, location=(0, 720))
+                    on_shape = values["shape"]
+
             if event == "-GRAPH-":  # if there's a "Graph" event, then it's a mouse
                 x, y = values["-GRAPH-"]
                 if not dragging:
@@ -84,7 +102,6 @@ class UI:
                     start_point[1] = 720 - start_point[1]
                     end_point[1] = 720 - end_point[1]
                     saved_shape = ("rectangle", start_point, end_point)
-                print("MOUSE UP", values, start_point, end_point)
                 start_point, end_point = None, None  # enable grabbing a new shape
                 dragging = False
             elif event == "Save":
@@ -130,7 +147,7 @@ class UI:
                 self.draw_rules_window()
                 settings_window.modal = True
                 imgbytes = self.render_frame()
-                settings_window["-RULES-"].draw_image(data=imgbytes, location=(0, 400))
+                settings_window["-RULES-"].draw_image(data=imgbytes, location=(0, 720))
             # If slider is moved, update input box
             if event == '-CONFIDENCESLIDER-':
                 settings_window['-CONFIDENCEINPUT-'].update(value=values['-CONFIDENCESLIDER-'])
@@ -270,16 +287,43 @@ class UI:
                             self.monitor.save_evidence(copiedframe, box, 0)
 
                     frame = cv2.rectangle(frame, start, end, (0, 0, 255), 2)
-        self.process_traffic_rules(frame, results)
+                if self.cameras[self.current_stream_index].speedlimit and self.cameras[self.current_stream_index].speeddetection_line:
+                    self.speed_estimator.estimate_speed(results)
+                    self.monitor.set_speeds(self.speed_estimator.dist_data)
+                    for track_id, speed in self.speed_estimator.dist_data.items():
+                        if self.monitor.detect_speed_violation(speed, self.cameras[self.current_stream_index].speedlimit):
+                            if track_id not in self.monitor.get_speed_violators():
+                                self.monitor.add_violator(track_id, speed, 1)
+                                violationbox = self.monitor.get_box_from_results(results, track_id)
+                                if violationbox:
+                                    self.monitor.save_evidence(copiedframe, violationbox, 1)
+                                else:
+                                    print("WARNING: Box not found for speed violation")
+        self.process_traffic_rules(frame, copiedframe.copy(), results)
 
-    def process_traffic_rules(self, frame, results):
-        if self.cameras[self.current_stream_index].traffic_light_coordinates and self.manual_traffic_mode:
-            start, end = self.cameras[self.current_stream_index].traffic_light_coordinates
-            status = self.monitor.detect_red_light(frame, start, end)
-            if status is not None:
-                self.cameras[self.current_stream_index].set_traffic_status(status)
+    def process_traffic_rules(self, frame, copiedframe, results):
+        
+        if self.manual_traffic_mode:
+            if self.cameras[self.current_stream_index].traffic_light_coordinates:
+                # manually detect traffic light status using color detection
+                start, end = self.cameras[self.current_stream_index].traffic_light_coordinates
+                status = self.monitor.detect_red_light(copiedframe, start, end)
+                if status is not None:
+                    self.cameras[self.current_stream_index].set_traffic_status(status)
+                frame = cv2.putText(frame, "STATUS: "+ self.cameras[self.current_stream_index].traffic_status,(10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+                frame = cv2.rectangle(frame, start, end, (0, 255, 0), 2)
+        else:
+            # automatically detect traffic light status from the model
+            boxes = [box for result in results for box in result.boxes if box.cls.item() == 2 or box.cls.item() == 3 or box.cls.item() == 4]
+            if boxes:
+                if boxes[0].cls.item() == 2:
+                    self.cameras[self.current_stream_index].set_traffic_status("red")
+                elif boxes[0].cls.item() == 3:
+                    self.cameras[self.current_stream_index].set_traffic_status("green")
+                elif boxes[0].cls.item() == 4:
+                    self.cameras[self.current_stream_index].set_traffic_status("orange")
             frame = cv2.putText(frame, "STATUS: "+ self.cameras[self.current_stream_index].traffic_status,(10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-            frame = cv2.rectangle(frame, start, end, (0, 255, 0), 2)
+                   
         if self.cameras[self.current_stream_index].pedestriancross_coordinates:
             start, end = self.cameras[self.current_stream_index].pedestriancross_coordinates
             frame = cv2.rectangle(frame, start, end, (255, 0, 0), 2)
@@ -288,15 +332,7 @@ class UI:
             start, end = self.cameras[self.current_stream_index].speeddetection_line
             frame = cv2.line(frame, start, end, (0, 0, 255), 2)
             self.speed_estimator.reg_pts = [start, end]
-            if self.cameras[self.current_stream_index].speedlimit:
-                self.speed_estimator.estimate_speed(results)
-                self.monitor.set_speeds(self.speed_estimator.dist_data)
-                for track_id, speed in self.speed_estimator.dist_data.items():
-                    if self.monitor.detect_speed_violation(speed, self.cameras[self.current_stream_index].speedlimit):
-                        if track_id not in self.monitor.get_speed_violators():
-                            self.monitor.add_violator(track_id, speed, 1)
-                            violationbox = self.monitor.get_box_from_results(results, track_id)
-                            self.monitor.save_evidence(frame, violationbox, 1)
+            
                             
     
     def events_page(self):
@@ -322,7 +358,7 @@ class UI:
         window.Maximize()
         # Event loop to handle button clicks and display video streams
         while True:
-            event, _ = window.read(timeout=3)
+            event, _ = window.read(timeout=2)
             done = self.handle_button_clicks(event)
             if done:
                 break

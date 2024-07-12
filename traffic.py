@@ -129,7 +129,7 @@ class TrafficMonitor():
             vehiclebox (list): Box object of the vehicle
         """
         x1, y1, x2, y2 = vehiclebox.cpu().xyxy.int().numpy().tolist()[0]
-        vehicleimg = frame[y1:y2, x1:x2]
+        vehicleimg = frame.copy()[y1:y2, x1:x2]
         # add the vehicle box to the image
         cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
         if vehiclebox.id:
@@ -194,5 +194,5 @@ class TrafficMonitor():
                     continue
                 if box.id == id:
                     return box
-        
+        return None
 
