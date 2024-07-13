@@ -5,6 +5,8 @@ import torchvision.ops.boxes as box_ops
 from ultralytics.solutions import SpeedEstimator
 from datetime import datetime
 import os
+from db import Database
+from uuid import uuid1
 
 class SpeedTracker(SpeedEstimator):
     # modify the class to store speeds instead of visualizing them
@@ -45,6 +47,7 @@ class TrafficMonitor():
         self.traffic_light_state = ""
         self.speeds = {}
         self.violators = {0: [], 1: [], 2: []}
+        self.db = Database("Traffic.db")
     
     def iou(self, box1, box2):
         box1 = torch.tensor([box1], dtype=torch.float32)
@@ -132,15 +135,19 @@ class TrafficMonitor():
         vehicleimg = frame.copy()[y1:y2, x1:x2]
         # add the vehicle box to the image
         cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
-        if vehiclebox.id:
-            vehicleid = vehiclebox.id.numpy()
+        uuid = uuid1()
+        if vehiclebox.id.numpy() and violation_type == 1:
+            speed = self.speeds[vehiclebox.id.numpy()]
+            self.db.insert_violation(datetime.now().strftime("%Y-%m-%d"), str(uuid), violation_type, f"evidence/vehicles/{uuid}.jpg", f"evidence/scenes/{uuid}.jpg", speed)
+        if violation_type == 0 or violation_type == 2:
+            self.db.insert_violation(datetime.now().strftime("%Y-%m-%d"), str(uuid), violation_type, f"evidence/vehicles/{uuid}.jpg", f"evidence/scenes/{uuid}.jpg")
         else:
-            print("WARNING: Vehicle ID not found")
+            print("WARNING: Violation type not recognized or speed not available")
             return
-        self.upload_image(vehicleid, vehicleimg, violation_type)
-        self.upload_image(vehicleid, frame, violation_type, vehicle=False)
+        self.upload_image(str(uuid), vehicleimg)
+        self.upload_image(str(uuid), frame, vehicle=False)
     
-    def upload_image(self, vehicleid, image, violation_type: int, vehicle=True):
+    def upload_image(self, uuid, image, vehicle=True):
         """Uploads the image to file storage
         Args:
             vehicleid (int): ID of the vehicle
@@ -162,12 +169,11 @@ class TrafficMonitor():
         # if not create it
         if not os.path.exists("evidence/scenes"):
             os.makedirs("evidence/scenes")
-        date = datetime.now().strftime("%Y%m%d")
         # save the image to the respective folder based on vehicle or scene
         if vehicle:
-            cv2.imwrite(f"evidence/vehicles/{date}-{vehicleid[0]}-{violation_type}.jpg", image)
+            cv2.imwrite(f"evidence/vehicles/{uuid}.jpg", image)
         else:
-            cv2.imwrite(f"evidence/scenes/{date}-{vehicleid[0]}-{violation_type}.jpg", image)
+            cv2.imwrite(f"evidence/scenes/{uuid}.jpg", image)
 
     def add_violator(self, vehiclebox, violation_type: int, speed: int = None):
         """Add the violator to the list of violators"""
