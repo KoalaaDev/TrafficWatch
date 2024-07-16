@@ -7,6 +7,10 @@ from datetime import datetime
 import os
 from db import Database
 from uuid import uuid1
+import pandas as pd
+import PySimpleGUI as sg
+    
+
 
 class SpeedTracker(SpeedEstimator):
     # modify the class to store speeds instead of visualizing them
@@ -202,3 +206,13 @@ class TrafficMonitor():
                     return box
         return None
 
+    def get_violations(self, date="All"):
+        """Returns the layout for the UI of the violations from the database"""
+        violations = self.db.fetch_violations(date)
+        violations = pd.DataFrame(violations)
+        # change violation values to actual violations 0: traffic light, 1: speed, 2: pedestrian crossing
+        violations[3] = violations[3].map({0: "Traffic Light Violation", 1: "Speed Violation", 2: "Pedestrian Crossing Violation"})
+        values = violations.to_numpy().tolist()
+        headers = self.db.get_headers()
+        layout = sg.Table(values=values, headings=headers, display_row_numbers=False, auto_size_columns=True, num_rows=min(25, len(violations)), cols_justification="center", justification="center")
+        return layout

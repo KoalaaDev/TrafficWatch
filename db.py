@@ -11,12 +11,16 @@ class Database:
         self.cur.execute("INSERT INTO evidence VALUES (NULL, ?, ?, ?, ?, ?, ?)", (date, vehicle_id, violation_type, vehicle, image, speed))
         self.conn.commit()
 
-    def fetch_violations(self, date="All"):
+    def fetch_violations(self, date="All", violation_type="All"):
         if date == "All":
             self.cur.execute("SELECT * FROM evidence")
         else:
             self.cur.execute("SELECT * FROM evidence WHERE Date=?", (date,))
         return self.cur.fetchall()
+    
+    def get_headers(self):
+        self.cur.execute("PRAGMA table_info(evidence)")
+        return [i[1] for i in self.cur.fetchall()]
     
     def __del__(self):
         self.conn.close()

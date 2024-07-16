@@ -18,7 +18,7 @@ class UI:
         self.cap = cv2.VideoCapture(self.cameras[self.current_stream_index].get_camera_url())
         self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 2)
         self.layout = [
-        [sg.Button("Settings"), sg.Button("Add Stream"), sg.Button("Remove Stream")],
+        [sg.Button("Settings"), sg.Button("Add Stream"), sg.Button("Remove Stream"), sg.Button("Events")],
         [sg.Button(image_filename="icons/left.png", key="Previous"), sg.Image(filename="", key="-IMAGE-"), sg.Button(image_filename="icons/right.png", key="Next")],
         [sg.Button("Toggle Detector"), sg.Button("Exit")]
         ]
@@ -251,6 +251,9 @@ class UI:
                 self.cap = cv2.VideoCapture(self.cameras[self.current_stream_index])
             else:
                 sg.popup("Cannot remove the last stream!")
+        
+        elif event == "Events":
+            self.events_page()
 
     def process_video(self, frame):
         # Use YOLO model to predict objects in the frame
@@ -338,6 +341,25 @@ class UI:
     def events_page(self):
         violations = self.monitor.violators
         # 0 = Traffic Light Violation, 1 = Speed Violation, 2 = Pedestrian Crossing Violation
+        table_tab = [
+            [sg.Text("Violations", font=('Helvetica', 16), justification='center')],
+            [self.monitor.get_violations()]
+        ]
+        gallery_tab = [
+            [sg.Text("Gallery", font=('Helvetica', 16), justification='center')],
+            [sg.Button("View Gallery")]
+        ]
+        analytics_tab = [
+            [sg.Text("Analytics", font=('Helvetica', 16), justification='center')],
+            [sg.Button("View Analytics")]
+        ]
+        layout = [[sg.TabGroup([[sg.Tab("Violations", table_tab), sg.Tab("Gallery", gallery_tab)]], enable_events=True)]]
+        window = sg.Window("Events", layout, finalize=True)
+        while True:
+            event, values = window.read()
+            if event == sg.WIN_CLOSED:
+                break
+
 
     def create_gallery_layout(self, title, grouped_files, folder):
         layout = [[sg.Text(title, font=('Any', 20))]]
