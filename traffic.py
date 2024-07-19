@@ -175,9 +175,9 @@ class TrafficMonitor():
             os.makedirs("evidence/scenes")
         # save the image to the respective folder based on vehicle or scene
         if vehicle:
-            cv2.imwrite(f"evidence/vehicles/{uuid}.jpg", image)
+            cv2.imwrite(f"evidence/vehicles/{uuid}.png", image)
         else:
-            cv2.imwrite(f"evidence/scenes/{uuid}.jpg", image)
+            cv2.imwrite(f"evidence/scenes/{uuid}.png", image)
 
     def add_violator(self, vehiclebox, violation_type: int, speed: int = None):
         """Add the violator to the list of violators"""
@@ -214,5 +214,45 @@ class TrafficMonitor():
         violations[3] = violations[3].map({0: "Traffic Light Violation", 1: "Speed Violation", 2: "Pedestrian Crossing Violation"})
         values = violations.to_numpy().tolist()
         headers = self.db.get_headers()
-        layout = sg.Table(values=values, headings=headers, display_row_numbers=False, auto_size_columns=True, num_rows=min(25, len(violations)), cols_justification="center", justification="center")
+        layout = sg.Table(values=values, headings=headers, key="-TABLE-", display_row_numbers=False, auto_size_columns=True, num_rows=min(25, len(violations)), cols_justification="center", justification="center")
         return layout
+    
+    def fetch_violations(self):
+        """Fetch the violations from the database in a pandas dataframe"""
+        violations = self.db.fetch_violations()
+        violations = pd.DataFrame(violations)
+        violations[3] = violations[3].map({0: "Traffic Light Violation", 1: "Speed Violation", 2: "Pedestrian Crossing Violation"})
+        return violations
+
+    def get_number_of_violations_by_date(self):
+        """Returns the number of violations by date"""
+        violations = self.db.fetch_violations()
+        violations = pd.DataFrame(violations)
+        violations[1] = pd.to_datetime(violations[1]).dt.date
+        violations = violations.groupby(1).count()
+        # return the number of violations by date as a dictionary
+        return violations[0].to_dict()
+    
+    def get_violations_breakdown(self, total=True):
+        """Returns the breakdown of violations"""
+        if total:
+            violations = self.db.fetch_violations()
+            violations = pd.DataFrame(violations)
+            violations = violations.groupby(3).count()
+            # return the breakdown of violations as a dictionary
+            return violations[0].to_dict()
+        else:
+            violations = self.db.fetch_violations()
+            violations = pd.DataFrame(violations)
+            # count the number of violations by date
+            violations[1] = pd.to_datetime(violations[1]).dt.date
+            violations = violations.groupby([1, 3]).count()
+            # return the breakdown of violations as a dictionary
+            return violations[0].to_dict()
+    
+    def plot_violations(self):
+        """Plots the number of violations by date"""
+        violations = self.get_number_of_violations_by_date()
+        df = pd.DataFrame(violations, index=[0])
+        df = df.transpose()
+        df.columns = ["Violations"]
