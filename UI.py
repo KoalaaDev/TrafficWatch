@@ -129,7 +129,7 @@ class UI:
         rules_layout = [[sg.Text("Set Traffic Rules", font=('Helvetica', 16), justification='center')],
                         [sg.Graph((1280, 720), (0, 0), (1280, 720), background_color='white', key='-RULES-')],
                         [sg.Button("Edit Rules")]]
-        model_layout = [[sg.Text("Edit Model Parameters")],
+        model_layout = [[sg.Text("Edit Model Parameters", font=('Helvetica', 16), justification='center')],
                   [sg.Text("Confidence Threshold"), sg.Slider((0,1),self.model_confidence,0.01, orientation="horizontal", size=(20, 20), key='-CONFIDENCESLIDER-', enable_events=True),sg.InputText('0', size=(5, 1), key='-CONFIDENCEINPUT-', enable_events=True)],
                   [sg.Text("Overlap Threshold"), sg.Slider((0,1),self.monitor.iou_threshold,0.01, orientation="horizontal", size=(20, 20), key='-IOUSLIDER-', enable_events=True),sg.InputText('0', size=(5, 1), key='-IOUINPUT-', enable_events=True)],
                   [sg.Text("Speed Limit"), sg.Slider((0,300),self.cameras[self.current_stream_index].speedlimit,1, orientation="horizontal", size=(20, 20), key='-SPEEDSLIDER-', enable_events=True),sg.InputText('0', size=(5, 1), key='-SPEEDINPUT-', enable_events=True)],
@@ -350,7 +350,7 @@ class UI:
         if len(pictures) == 0:
             gallery_tab = [
                 [sg.Text("Gallery", font=('Helvetica', 16), justification='center')],
-                [sg.Text("No violations recorded")]
+                [sg.Text("No violations recorded", key="-Gallery-", font=('Helvetica', 14), justification='center', expand_x=True)]
             ]
         else:
             gallery_tab = [
@@ -369,8 +369,11 @@ class UI:
             event, values = window.read()
             if event == sg.WIN_CLOSED:
                 break
+            if event in violation_records[2].to_list():
+                violation_record = violation_records.loc[violation_records[2] == event]
+                self.generate_report_layout(violation_record)
             print(event)
-
+            print(violation_records[2].to_list())
     def create_gallery_layout(self, folder):
         files = get_image_files(folder)
         buttons = []
@@ -378,7 +381,7 @@ class UI:
             picture = cv2.imread(file.path)
             picture = cv2.resize(picture, (300, 250))
             picture = cv2.imencode(".png", picture)[1].tobytes()
-            buttons.append(sg.Button(image_data=picture, key=file.name, button_color=('white', 'white'), enable_events=True, image_size=(300, 250)))
+            buttons.append(sg.Button(image_data=picture, key=file.name.strip(".png"), button_color=('white', 'white'), enable_events=True, image_size=(300, 250)))
 
         cols = split_list(buttons, 3)
         layout = [[sg.Column([column])] for column in cols]
@@ -386,13 +389,33 @@ class UI:
     
     def generate_report_layout(self, violation_record):
         # NOTE We still have to figure out a format for the violation record
-        layout = [[sg.Text("Violation Record", font=('Helvetica', 16), justification='center')],
-                  [sg.Text(f"Violation Type: {violation_record[0]}")],
-                  [sg.Text(f"Location: {violation_record[1]}")],
-                  [sg.Text(f"Time: {violation_record[2]}")],
-                  [sg.Text(f"Image: {violation_record[3]}")],
-                  [sg.Button("Back")]]
-        return layout
+        layout = [
+                    [sg.Text("Traffic Violation Details", size=(30, 1), font=("Helvetica", 25), justification="center")],
+                    [sg.HorizontalSeparator()],
+                    [sg.Text("Violation Date:", size=(15, 1)), sg.Text(violation_record[1][0], size=(20, 1))],
+                    [sg.Text("Vehicle ID:", size=(15, 1)), sg.Text(violation_record[2][0], size=(40, 1))],
+                    [sg.Text("Violation Type:", size=(15, 1)), sg.Text(violation_record[3][0], size=(20, 1))],
+                    [sg.Text("Speed (km/h):", size=(15, 1)), sg.Text(violation_record[6][0], size=(20, 1))],
+                    [sg.HorizontalSeparator()],
+                    [sg.Text("Vehicle Picture:", size=(15, 1)), sg.Image(filename=violation_record[4][0], key="VehicleImage")],
+                    [sg.HorizontalSeparator()],
+                    [sg.Text("Scene Picture:", size=(15, 1)), sg.Image(filename=violation_record[5][0], key="SceneImage", size=(200, 100))],
+                    [sg.Button("View Full Size", key="ViewSceneImage")],
+                    [sg.HorizontalSeparator()],
+                    [sg.Button("Back"), sg.Button("Print")],
+                ]
+        window = sg.Window("Violation Report", layout, finalize=True)
+        while True:
+            event, values = window.read()
+            if event == sg.WIN_CLOSED or event == "Back":
+                break
+            if event == "ViewVehicleImage":
+                cv2.imshow("Vehicle Image", cv2.imread(violation_record[4][0]))
+            if event == "ViewSceneImage":
+                cv2.imshow("Scene Image", cv2.imread(violation_record[5][0]))
+            if event == "Print":
+                self.print_report(violation_record)
+        window.close()
     # Event loop to handle button clicks and display video streams
     def event_loop(self):
         window = sg.Window("Traffic Watch", self.layout, finalize=True)

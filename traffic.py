@@ -142,9 +142,9 @@ class TrafficMonitor():
         uuid = uuid1()
         if vehiclebox.id.numpy() and violation_type == 1:
             speed = self.speeds[vehiclebox.id.numpy()]
-            self.db.insert_violation(datetime.now().strftime("%Y-%m-%d"), str(uuid), violation_type, f"evidence/vehicles/{uuid}.jpg", f"evidence/scenes/{uuid}.jpg", speed)
+            self.db.insert_violation(datetime.now().strftime("%Y-%m-%d"), str(uuid), violation_type, f"evidence/vehicles/{uuid}.png", f"evidence/scenes/{uuid}.png", speed)
         if violation_type == 0 or violation_type == 2:
-            self.db.insert_violation(datetime.now().strftime("%Y-%m-%d"), str(uuid), violation_type, f"evidence/vehicles/{uuid}.jpg", f"evidence/scenes/{uuid}.jpg")
+            self.db.insert_violation(datetime.now().strftime("%Y-%m-%d"), str(uuid), violation_type, f"evidence/vehicles/{uuid}.png", f"evidence/scenes/{uuid}.png")
         else:
             print("WARNING: Violation type not recognized or speed not available")
             return
@@ -209,6 +209,8 @@ class TrafficMonitor():
     def get_violations(self, date="All"):
         """Returns the layout for the UI of the violations from the database"""
         violations = self.db.fetch_violations(date)
+        if not violations:
+            return sg.Text("No violations found", font=('Helvetica', 14), justification='center', expand_x=True, key="-TABLE-")
         violations = pd.DataFrame(violations)
         # change violation values to actual violations 0: traffic light, 1: speed, 2: pedestrian crossing
         violations[3] = violations[3].map({0: "Traffic Light Violation", 1: "Speed Violation", 2: "Pedestrian Crossing Violation"})
@@ -220,6 +222,8 @@ class TrafficMonitor():
     def fetch_violations(self):
         """Fetch the violations from the database in a pandas dataframe"""
         violations = self.db.fetch_violations()
+        if not violations:
+            return pd.DataFrame()
         violations = pd.DataFrame(violations)
         violations[3] = violations[3].map({0: "Traffic Light Violation", 1: "Speed Violation", 2: "Pedestrian Crossing Violation"})
         return violations
