@@ -9,7 +9,7 @@ from db import Database
 from uuid import uuid1
 import pandas as pd
 import PySimpleGUI as sg
-    
+import matplotlib.pyplot as plt
 
 
 class SpeedTracker(SpeedEstimator):
@@ -129,7 +129,7 @@ class TrafficMonitor():
     def set_speeds(self, speeds):
         self.speeds = speeds
 
-    def save_evidence(self, frame, vehiclebox, violation_type: int):
+    def save_evidence(self, frame, vehiclebox, violation_type: int, speed: int = None):
         """Save evidence of the traffic violation
         Args:
             frame (ndarray): Frame of the video
@@ -140,13 +140,12 @@ class TrafficMonitor():
         # add the vehicle box to the image
         cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
         uuid = uuid1()
-        if vehiclebox.id.numpy() and violation_type == 1:
-            speed = self.speeds[vehiclebox.id.numpy()]
+        if violation_type == 1:
             self.db.insert_violation(datetime.now().strftime("%Y-%m-%d"), str(uuid), violation_type, f"evidence/vehicles/{uuid}.png", f"evidence/scenes/{uuid}.png", speed)
-        if violation_type == 0 or violation_type == 2:
+        elif violation_type == 0 or violation_type == 2:
             self.db.insert_violation(datetime.now().strftime("%Y-%m-%d"), str(uuid), violation_type, f"evidence/vehicles/{uuid}.png", f"evidence/scenes/{uuid}.png")
         else:
-            print("WARNING: Violation type not recognized or speed not available")
+            print("WARNING: Violation type not recognized")
             return
         self.upload_image(str(uuid), vehicleimg)
         self.upload_image(str(uuid), frame, vehicle=False)
@@ -179,12 +178,12 @@ class TrafficMonitor():
         else:
             cv2.imwrite(f"evidence/scenes/{uuid}.png", image)
 
-    def add_violator(self, vehiclebox, violation_type: int, speed: int = None):
+    def add_violator(self, vehiclebox, violation_type: int):
         """Add the violator to the list of violators"""
         if violation_type == 0:
             self.violators[0].append(vehiclebox)
         elif violation_type == 1:
-            self.violators[1].append({vehiclebox: speed})
+            self.violators[1].append(vehiclebox)
         elif violation_type == 2:
             self.violators[2].append(vehiclebox)
     
@@ -243,6 +242,8 @@ class TrafficMonitor():
             violations = self.db.fetch_violations()
             violations = pd.DataFrame(violations)
             violations = violations.groupby(3).count()
+            # map the violation types to actual violations in the index
+            violations.index = violations.index.map({0: "Traffic Light Violation", 1: "Speed Violation", 2: "Pedestrian Crossing Violation"})
             # return the breakdown of violations as a dictionary
             return violations[0].to_dict()
         else:
@@ -260,3 +261,12 @@ class TrafficMonitor():
         df = pd.DataFrame(violations, index=[0])
         df = df.transpose()
         df.columns = ["Violations"]
+        # convert index to datetime
+        df.index = pd.to_datetime(df.index)
+        # plot the data in a line chart
+        ax = df.plot(kind='line', title='Number of Violations by Date', legend=True)
+        ax.set_xticks(df.index)
+        ax.set_xticklabels(df.index.strftime('%Y-%m-%d'), rotation=45)
+        plt.tight_layout()
+        # save the plot
+        plt.savefig("violations.png")

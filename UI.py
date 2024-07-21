@@ -297,10 +297,11 @@ class UI:
                     for track_id, speed in self.speed_estimator.dist_data.items():
                         if self.monitor.detect_speed_violation(speed, self.cameras[self.current_stream_index].speedlimit):
                             if track_id not in self.monitor.get_speed_violators():
-                                self.monitor.add_violator(track_id, speed, 1)
+                                self.monitor.add_violator(track_id, 1)
                                 violationbox = self.monitor.get_box_from_results(results, track_id)
                                 if violationbox:
-                                    self.monitor.save_evidence(copiedframe, violationbox, 1)
+                                    frame = cv2.putText(frame, "Speed Violation", (10, 150), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+                                    self.monitor.save_evidence(copiedframe, violationbox, 1, speed)
                                 else:
                                     print("WARNING: Box not found for speed violation")
         self.process_traffic_rules(frame, copiedframe.copy(), results)
@@ -392,14 +393,14 @@ class UI:
         layout = [
                     [sg.Text("Traffic Violation Details", size=(30, 1), font=("Helvetica", 25), justification="center")],
                     [sg.HorizontalSeparator()],
-                    [sg.Text("Violation Date:", size=(15, 1)), sg.Text(violation_record[1][0], size=(20, 1))],
-                    [sg.Text("Vehicle ID:", size=(15, 1)), sg.Text(violation_record[2][0], size=(40, 1))],
-                    [sg.Text("Violation Type:", size=(15, 1)), sg.Text(violation_record[3][0], size=(20, 1))],
-                    [sg.Text("Speed (km/h):", size=(15, 1)), sg.Text(violation_record[6][0], size=(20, 1))],
+                    [sg.Text("Violation Date:", size=(15, 1)), sg.Text(violation_record[1].values[0], size=(20, 1))],
+                    [sg.Text("Vehicle ID:", size=(15, 1)), sg.Text(violation_record[2].values[0], size=(40, 1))],
+                    [sg.Text("Violation Type:", size=(15, 1)), sg.Text(violation_record[3].values[0], size=(20, 1))],
+                    [sg.Text("Speed (km/h):", size=(15, 1)), sg.Text(violation_record[6].values[0], size=(20, 1))],
                     [sg.HorizontalSeparator()],
-                    [sg.Text("Vehicle Picture:", size=(15, 1)), sg.Image(filename=violation_record[4][0], key="VehicleImage")],
+                    [sg.Text("Vehicle Picture:", size=(15, 1)), sg.Image(filename=violation_record[4].values[0], key="VehicleImage")],
                     [sg.HorizontalSeparator()],
-                    [sg.Text("Scene Picture:", size=(15, 1)), sg.Image(filename=violation_record[5][0], key="SceneImage", size=(200, 100))],
+                    [sg.Text("Scene Picture:", size=(15, 1)), sg.Image(filename=violation_record[5].values[0], key="SceneImage", size=(200, 100))],
                     [sg.Button("View Full Size", key="ViewSceneImage")],
                     [sg.HorizontalSeparator()],
                     [sg.Button("Back"), sg.Button("Print")],
@@ -410,9 +411,9 @@ class UI:
             if event == sg.WIN_CLOSED or event == "Back":
                 break
             if event == "ViewVehicleImage":
-                cv2.imshow("Vehicle Image", cv2.imread(violation_record[4][0]))
+                cv2.imshow("Vehicle Image", cv2.imread(violation_record[4].values[0]))
             if event == "ViewSceneImage":
-                cv2.imshow("Scene Image", cv2.imread(violation_record[5][0]))
+                cv2.imshow("Scene Image", cv2.imread(violation_record[5].values[0]))
             if event == "Print":
                 self.print_report(violation_record)
         window.close()
