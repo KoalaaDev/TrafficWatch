@@ -141,9 +141,9 @@ class TrafficMonitor():
         cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
         uuid = uuid1()
         if violation_type == 1:
-            self.db.insert_violation(datetime.now().strftime("%Y-%m-%d"), str(uuid), violation_type, f"evidence/vehicles/{uuid}.png", f"evidence/scenes/{uuid}.png", speed)
+            self.db.insert_violation(datetime.now().strftime("%Y-%m-%d %H:%M:%S"), str(uuid), violation_type, f"evidence/vehicles/{uuid}.png", f"evidence/scenes/{uuid}.png", speed)
         elif violation_type == 0 or violation_type == 2:
-            self.db.insert_violation(datetime.now().strftime("%Y-%m-%d"), str(uuid), violation_type, f"evidence/vehicles/{uuid}.png", f"evidence/scenes/{uuid}.png")
+            self.db.insert_violation(datetime.now().strftime("%Y-%m-%d %H:%M:%S"), str(uuid), violation_type, f"evidence/vehicles/{uuid}.png", f"evidence/scenes/{uuid}.png")
         else:
             print("WARNING: Violation type not recognized")
             return
