@@ -16,6 +16,10 @@ def get_image_files(directory):
     Returns:
     - list: A list of directory objects of image files
     """
+    # check if the directory exists
+    if not os.path.exists(directory):
+        # create the directory if it does not exist
+        os.makedirs(directory)
     return [f for f in os.scandir(directory) if f.name.lower().endswith('.png')]
 
 def split_into_columns(input_list, cols=3):
