@@ -299,7 +299,7 @@ class UI:
                     if self.monitor.detect_traffic_light_violation(self.monitor.calculate_box_coordinates(start, end),(x1, y1, x2, y2)) and self.cameras[self.current_stream_index].traffic_status == "red":
                         frame = cv2.putText(frame, "Traffic Light Violation", (10, 100), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
                         if box.id not in self.monitor.get_traffic_light_violators():
-                            self.monitor.add_violator(box.id, 0, 0)
+                            self.monitor.add_violator(box.id, 0)
                             self.monitor.save_evidence(copiedframe, box, 0)
 
                     frame = cv2.rectangle(frame, start, end, (0, 0, 255), 2)

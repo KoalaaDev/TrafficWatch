@@ -295,13 +295,38 @@ class TrafficMonitor():
         violations = self.get_violations_breakdown(total=False)
         df = pd.DataFrame(list(violations.keys()), columns=["Date", "Violation type"])
         df["Violation type"] = df["Violation type"].map({0: "Traffic Light Violation", 1: "Speed Violation", 2: "Pedestrian Crossing Violation"})
-        df["Count"] = violations.values()
+        df["Count"] = list(violations.values())
         df["Date"] = pd.to_datetime(df["Date"])
-        # Date as index
-        df.set_index("Date", inplace=True)
-        print(df)
-        df.plot(kind='bar', stacked=True)
-        plt.title("Violations Breakdown by Date")
+        
+        # Pivot table to get counts per date per violation type
+        pivot_df = df.pivot_table(index='Date', columns='Violation type', values='Count', aggfunc='sum', fill_value=0)
+
+        # List of possible violation types
+        violation_types = ["Traffic Light Violation", "Speed Violation", "Pedestrian Crossing Violation"]
+        
+        # Initialize counts for each type to zeros if not present in the data
+        counts = {violation: pivot_df[violation] if violation in pivot_df else pd.Series(0, index=pivot_df.index) for violation in violation_types}
+
+        # Extract aligned counts
+        traffic_light = counts["Traffic Light Violation"]
+        speeding = counts["Speed Violation"]
+        pedestrian_crossing = counts["Pedestrian Crossing Violation"]
+
+        # Dates
+        dates = pivot_df.index
+        print(pivot_df)
+        # Create the plot
+        plt.figure(figsize=(10, 6))
+        plt.bar(dates, traffic_light, color='r', label='Traffic Light Violation')
+        plt.bar(dates, speeding, bottom=traffic_light, color='b', label='Speed Violation')
+        plt.bar(dates, pedestrian_crossing, bottom=traffic_light + speeding, color='g', label='Pedestrian Crossing Violation')
+        print(dates)
+        # Add labels and title
+        plt.xlabel('Date')
+        plt.ylabel('Number of Violations')
+        plt.title('Traffic Violations by Date')
+        
+        plt.legend()
         plt.tight_layout()
         # save the plot
         # check if plots folder exists
