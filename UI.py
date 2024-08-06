@@ -1,3 +1,4 @@
+from math import pi
 import PySimpleGUI as sg
 import cv2
 from camera import Camera
@@ -46,7 +47,8 @@ class UI:
         return imgbytes
     
     def draw_rules_window(self):
-        layout = [[sg.Combo(["Traffic line Rule", "Traffic light", "Pedestrian Crossing", "Speed detection"], size=(20, 1), key="shape", default_value="Traffic line Rule", readonly=True, enable_events=True)],
+        selection = ["Traffic line Rule", "Traffic light", "Pedestrian Crossing", "Speed detection"] if not self.dev_mode else ["Traffic line Rule", "Traffic light", "Pedestrian Crossing", "Speed detection", "Pedestrian", "Vehicle"]
+        layout = [[sg.Combo(selection, size=(20, 1), key="shape", default_value="Traffic line Rule", readonly=True, enable_events=True)],
                 [sg.Graph((1280, 720), (0, 0), (1280, 720), background_color='white', key='-GRAPH-', drag_submits=True, enable_events=True)],
                 [sg.Button("Save"), sg.Button("Cancel")]]
         settings_window = sg.Window("Edit Rules", layout, modal=True, finalize=True)
@@ -135,7 +137,8 @@ class UI:
                   [sg.Text("Confidence Threshold"), sg.Slider((0,1),self.model_confidence,0.01, orientation="horizontal", size=(20, 20), key='-CONFIDENCESLIDER-', enable_events=True),sg.InputText('0', size=(5, 1), key='-CONFIDENCEINPUT-', enable_events=True)],
                   [sg.Text("Overlap Threshold"), sg.Slider((0,1),self.monitor.iou_threshold,0.01, orientation="horizontal", size=(20, 20), key='-IOUSLIDER-', enable_events=True),sg.InputText('0', size=(5, 1), key='-IOUINPUT-', enable_events=True)],
                   [sg.Text("Speed Limit"), sg.Slider((0,300),self.cameras[self.current_stream_index].speedlimit,1, orientation="horizontal", size=(20, 20), key='-SPEEDSLIDER-', enable_events=True),sg.InputText('0', size=(5, 1), key='-SPEEDINPUT-', enable_events=True)],
-                  [sg.Text("Enable Manual Traffic Detection"),sg.Image(source=model_tickbox, key="manual_traffic_mode", enable_events=True)]]
+                  [sg.Text("Enable Manual Traffic Detection"),sg.Image(source=model_tickbox, key="manual_traffic_mode", enable_events=True)],
+                  [sg.Text("Developer Mode"), sg.Image(source=model_tickbox, key="dev_mode", enable_events=True)]]
         settings_layout = [[sg.TabGroup([[sg.Tab("Rules", rules_layout)], [sg.Tab("Model", model_layout)]])]]
         settings_window = sg.Window("Settings", settings_layout, modal=True, finalize=True)
         
@@ -196,6 +199,13 @@ class UI:
                     settings_window["manual_traffic_mode"].update(source=check)
                 else:
                     settings_window["manual_traffic_mode"].update(source=uncheck)
+
+            if event == "dev_mode":
+                self.dev_mode = not self.dev_mode
+                if self.dev_mode:
+                    settings_window["dev_mode"].update(source=check)
+                else:
+                    settings_window["dev_mode"].update(source=uncheck)
         settings_window.close()
 
     def open_add_stream_window(self):
@@ -360,10 +370,31 @@ class UI:
                 [sg.Text("Gallery", font=('Helvetica', 16), justification='center')],
                 [sg.Column(pictures, scrollable=True, vertical_scroll_only=True, expand_x=True, expand_y=True, size=(950, 290), justification='center', key="-Gallery-")]
             ]
-        analytics_tab = [
-            [sg.Text("Analytics", font=('Helvetica', 16), justification='center')],
-            [sg.Button("View Analytics")]
-        ]
+        if len(violation_records) == 0:
+            analytics_tab = [
+                [sg.Text("Analytics", font=('Helvetica', 16), justification='center')],
+                [sg.Text("No violations recorded", key="-Analytics-", font=('Helvetica', 14), justification='center', expand_x=True)]
+            ]
+        else:
+            self.monitor.get_piechart()
+            self.monitor.get_stackplot()
+            self.monitor.plot_violations()
+            # create different tabs for the analytics
+            piechart_tab = [
+                [sg.Text("Traffic violation breakdown", font=('Helvetica', 16), justification='center')],
+                [sg.Image(filename="plots/piechart.png", key="-Piechart-")]
+            ]
+            stackplot_tab = [
+                [sg.Text("Traffic violation breakdown timeline", font=('Helvetica', 16), justification='center')],
+                [sg.Image(filename="plots/stackplot.png", key="-Stackplot-")]
+            ]
+            lineplot_tab = [
+                [sg.Text("Traffic violations over time", font=('Helvetica', 16), justification='center')],
+                [sg.Image(filename="plots/lineplot.png", key="-Lineplot-")]
+            ]
+            analytics_tab = [
+                [sg.TabGroup([[sg.Tab("Pie Chart", piechart_tab), sg.Tab("Stack Plot", stackplot_tab), sg.Tab("Line Plot", lineplot_tab)]])]
+            ]
         layout = [[sg.TabGroup([[sg.Tab("Violations", table_tab), sg.Tab("Gallery", gallery_tab, ), sg.Tab("Analytics", analytics_tab)]])]]
         window = sg.Window("Events", layout, finalize=True)
         window['-TABLE-'].expand(True, True)
@@ -375,8 +406,8 @@ class UI:
             if event in violation_records[2].to_list():
                 violation_record = violation_records.loc[violation_records[2] == event]
                 self.generate_report_layout(violation_record)
-            print(event)
-            print(violation_records[2].to_list())
+        window.close()
+        
     def create_gallery_layout(self, folder):
         files = get_image_files(folder)
         buttons = []

@@ -269,4 +269,42 @@ class TrafficMonitor():
         ax.set_xticklabels(df.index.strftime('%Y-%m-%d'), rotation=45)
         plt.tight_layout()
         # save the plot
-        plt.savefig("violations.png")
+        # check if plots folder exists
+        if not os.path.exists("plots"):
+            os.makedirs("plots")
+        plt.savefig("plots/lineplot.png")
+
+    def get_piechart(self):
+        """Plots the breakdown of violations"""
+        violations = self.get_violations_breakdown()
+        df = pd.DataFrame(list(violations.items()), columns=["Violation Type", "Count"])
+        df.set_index("Violation Type", inplace=True)
+        # plot the data in a pie chart
+        df.plot.pie(y="Count", autopct='%1.1f%%', startangle=90, legend=False)
+        plt.axis('equal')
+        plt.title("Violations Breakdown")
+        plt.tight_layout()
+        # save the plot
+        # check if plots folder exists
+        if not os.path.exists("plots"):
+            os.makedirs("plots")
+        plt.savefig("plots/piechart.png")
+
+    def get_stackplot(self):
+        """Plots the breakdown of violations by date"""
+        violations = self.get_violations_breakdown(total=False)
+        df = pd.DataFrame(list(violations.keys()), columns=["Date", "Violation type"])
+        df["Violation type"] = df["Violation type"].map({0: "Traffic Light Violation", 1: "Speed Violation", 2: "Pedestrian Crossing Violation"})
+        df["Count"] = violations.values()
+        df["Date"] = pd.to_datetime(df["Date"])
+        # Date as index
+        df.set_index("Date", inplace=True)
+        print(df)
+        df.plot(kind='bar', stacked=True)
+        plt.title("Violations Breakdown by Date")
+        plt.tight_layout()
+        # save the plot
+        # check if plots folder exists
+        if not os.path.exists("plots"):
+            os.makedirs("plots")
+        plt.savefig("plots/stackplot.png")
