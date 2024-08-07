@@ -118,6 +118,12 @@ class TrafficMonitor():
             return True
         return False
     
+    def detect_pedestrian_crossing_violation(self, vehiclebox, pedestrianbox, rulebox):
+        """Detects if the vehicle has violated the pedestrian crossing"""
+        if self.iou(vehiclebox, pedestrianbox) > self.iou_threshold and self.iou(vehiclebox, rulebox) > self.iou_threshold:
+            return True
+        return False
+    
     def calculate_box_coordinates(self, start, end):
         """Calculate the box coordinates"""
         x1, y1 = start

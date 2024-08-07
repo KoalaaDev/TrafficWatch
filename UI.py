@@ -17,7 +17,6 @@ class UI:
         self.manual_traffic_mode = False
         self.model_confidence = 0.5
         self.model = model
-        self.dev_mode = False
         self.speed_estimator = SpeedTracker(self.model.names)
         self.cap = cv2.VideoCapture(self.cameras[self.current_stream_index].get_camera_url())
         self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 2)
@@ -47,7 +46,7 @@ class UI:
         return imgbytes
     
     def draw_rules_window(self):
-        selection = ["Traffic line Rule", "Traffic light", "Pedestrian Crossing", "Speed detection"] if not self.dev_mode else ["Traffic line Rule", "Traffic light", "Pedestrian Crossing", "Speed detection", "Pedestrian", "Vehicle"]
+        selection = ["Traffic line Rule", "Traffic light", "Pedestrian Crossing", "Speed detection"]
         layout = [[sg.Combo(selection, size=(20, 1), key="shape", default_value="Traffic line Rule", readonly=True, enable_events=True)],
                 [sg.Graph((1280, 720), (0, 0), (1280, 720), background_color='white', key='-GRAPH-', drag_submits=True, enable_events=True)],
                 [sg.Button("Save"), sg.Button("Cancel")]]
@@ -138,7 +137,7 @@ class UI:
                   [sg.Text("Overlap Threshold"), sg.Slider((0,1),self.monitor.iou_threshold,0.01, orientation="horizontal", size=(20, 20), key='-IOUSLIDER-', enable_events=True),sg.InputText('0', size=(5, 1), key='-IOUINPUT-', enable_events=True)],
                   [sg.Text("Speed Limit"), sg.Slider((0,300),self.cameras[self.current_stream_index].speedlimit,1, orientation="horizontal", size=(20, 20), key='-SPEEDSLIDER-', enable_events=True),sg.InputText('0', size=(5, 1), key='-SPEEDINPUT-', enable_events=True)],
                   [sg.Text("Enable Manual Traffic Detection"),sg.Image(source=model_tickbox, key="manual_traffic_mode", enable_events=True)],
-                  [sg.Text("Developer Mode"), sg.Image(source=model_tickbox, key="dev_mode", enable_events=True)]]
+                  ]
         settings_layout = [[sg.TabGroup([[sg.Tab("Rules", rules_layout)], [sg.Tab("Model", model_layout)]])]]
         settings_window = sg.Window("Settings", settings_layout, modal=True, finalize=True)
         
@@ -200,12 +199,6 @@ class UI:
                 else:
                     settings_window["manual_traffic_mode"].update(source=uncheck)
 
-            if event == "dev_mode":
-                self.dev_mode = not self.dev_mode
-                if self.dev_mode:
-                    settings_window["dev_mode"].update(source=check)
-                else:
-                    settings_window["dev_mode"].update(source=uncheck)
         settings_window.close()
 
     def open_add_stream_window(self):
@@ -344,6 +337,17 @@ class UI:
         if self.cameras[self.current_stream_index].pedestriancross_coordinates:
             start, end = self.cameras[self.current_stream_index].pedestriancross_coordinates
             frame = cv2.rectangle(frame, start, end, (255, 0, 0), 2)
+            # get all pedestrian boxes
+            pedestrian_boxes = [box for result in results for box in result.boxes if box.cls.item() == 0]
+            # get vehicle boxes
+            vehicle_boxes = [box for result in results for box in result.boxes if box.cls.item() == 5]
+            for pedestrianbox in pedestrian_boxes:
+                for vehiclebox in vehicle_boxes:
+                    if self.monitor.detect_pedestrian_crossing_violation(vehiclebox, pedestrianbox, self.monitor.calculate_box_coordinates(start, end)):
+                        frame = cv2.putText(frame, "Pedestrian Crossing Violation", (10, 200), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+                        if pedestrianbox.id not in self.monitor.get_pedestrian_violators():
+                            self.monitor.add_violator(pedestrianbox.id, 2)
+                            self.monitor.save_evidence(copiedframe, pedestrianbox, 2)
         
         if self.cameras[self.current_stream_index].speeddetection_line:
             start, end = self.cameras[self.current_stream_index].speeddetection_line
